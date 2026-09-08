@@ -39,8 +39,10 @@ pacman -S --needed --noconfirm \
 # --nocheck: howdy-next's test suite contains security cases that require
 # root-owned fixture paths (upstream CI runs as root); they fail in any
 # unprivileged build environment. That is environmental, not a code defect.
-aur_install() { # $1 = AUR package name
-  local pkg="$1"
+# AUR builds are pinned to exact commits (reviewed state); bump the pins
+# deliberately to pull upstream packaging changes.
+aur_install() { # $1 = AUR package name, $2 = pinned commit
+  local pkg="$1" pin="$2"
   if pacman -Q "$pkg" &>/dev/null; then
     echo "already installed: $pkg"
     return
@@ -48,6 +50,7 @@ aur_install() { # $1 = AUR package name
   local tmp
   tmp="$(runuser -u "$REAL_USER" -- mktemp -d)"
   runuser -u "$REAL_USER" -- git clone -q "https://aur.archlinux.org/$pkg.git" "$tmp/$pkg"
+  (cd "$tmp/$pkg" && runuser -u "$REAL_USER" -- git checkout -q "$pin")
   (cd "$tmp/$pkg" && runuser -u "$REAL_USER" -- makepkg -f --nocheck --noconfirm)
   pacman -U --noconfirm "$tmp/$pkg/$pkg"-*.pkg.tar.zst
 }
@@ -58,12 +61,12 @@ aur_install() { # $1 = AUR package name
 if ! ls /dev/video* >/dev/null 2>&1 && lspci -nn 2>/dev/null | grep -q '14e4:1570'; then
   echo "==> Broadcom FaceTime HD camera detected, installing facetimehd driver"
   pacman -S --needed --noconfirm linux-headers dkms
-  aur_install facetimehd-firmware
-  aur_install facetimehd-dkms
+  aur_install facetimehd-firmware 3cf07f097e9666511118d61d13f04071f95e927a
+  aur_install facetimehd-dkms e1da85aded92a98f3739265c6157fa92fd674ce4
   modprobe facetimehd || echo "WARN: modprobe facetimehd failed (a reboot will load it)"
 fi
 
-aur_install howdy-next
+aur_install howdy-next 30e6afaca86d288486ea158f919fcee4b5cf8e34
 
 # 2b. Recognition models (YuNet detector + SFace recognizer, downloaded to the
 # unpackaged /usr/share/howdy/models)
