@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ddload87.face-login",
+  "name": "Face Login (Howdy)",
+  "version": "1.0.0",
+  "author": "ddload87",
+  "description": "Windows Hello-style face authentication for sudo, polkit, SDDM and the Omarchy lock screen, powered by howdy-next.",
+  "kinds": [
+    "menu"
+  ],
+  "entryPoints": {
+    "menu": "Menu.qml"
+  }
+}

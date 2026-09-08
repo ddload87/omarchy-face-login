@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# omarchy 锁屏生物识别探针 shim（face-login-howdy 模块，howdy-next 版）。
+#
+# 探针逻辑（omarchy shell plugins/lock/Service.qml fingerprintCheckProc）：
+#   [[ -f /etc/pam.d/omarchy-lock-fingerprint ]] && command -v fprintd-list
+#     && fprintd-list "$USER" | grep -qi finger   → 锁屏建立时并行启动
+#   PAM 服务 omarchy-lock-fingerprint（本模块写入 = pam_howdy 人脸）。
+#
+# 本机无指纹硬件、无 fprintd；当 howdy 存在人脸模型时，这里输出含 "finger"
+# 的应答使探针通过。模型目录 /etc/howdy/models 是 root 0750/0600，普通用户
+# 无法直接 stat，故存在性检查借用 howdy-next 自带的 setuid helper：
+# prepare 成功 = 模型存在（随后立即 cleanup 回收运行时副本）。
+# 若日后安装真正的 fprintd（/usr/bin/fprintd-list 出现），本 shim 直接转发，
+# 不遮挡真实指纹功能。
+set -u
+
+real=/usr/bin/fprintd-list
+if [[ -x $real ]]; then
+  exec "$real" "$@"
+fi
+
+user="${@: -1}"
+helper=/usr/lib/howdy/howdy-auth-helper
+[[ -n ${user:-} && -x $helper ]] || exit 1
+
+if "$helper" prepare "$user" >/dev/null 2>&1; then
+  "$helper" cleanup "$user" >/dev/null 2>&1 || true
+  printf 'Fingerprints for user %s on %s (howdy face model):\n - #0: face\n' \
+    "$user" "$(hostname)"
+  exit 0
+fi
+
+echo "fprintd-list shim: no howdy face model for ${user:-unknown}" >&2
+exit 1

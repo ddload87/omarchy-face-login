@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# face-login-manage — howdy-next 人脸模型管理 TUI
+# omarchy 菜单入口：Setup → Security → Face Recognition
+# （安装/语义见 ~/Documents/omarchy_install/face-login-howdy/）
+set -uo pipefail
+
+howdy_disabled() {
+  sudo grep -qE '^\s*disabled\s*=\s*true' /etc/howdy/config.ini 2>/dev/null
+}
+
+while true; do
+  clear
+  echo "Face Recognition (howdy-next)"
+  echo
+  if howdy_disabled; then
+    echo "状态: 已禁用（认证直落密码）"
+  else
+    echo "状态: 启用中"
+  fi
+  echo "模型:"
+  sudo howdy list 2>/dev/null | sed 's/^/  /'
+  echo
+
+  if howdy_disabled; then
+    toggle="Enable   启用人脸认证"
+  else
+    toggle="Disable  停用人脸认证"
+  fi
+
+  choice=$(gum choose --height 9 \
+    "Add      录入新模型" \
+    "Remove   删除指定模型" \
+    "Test     摄像头实时测试" \
+    "$toggle" \
+    "Clear    清空全部模型" \
+    "Quit     退出") || break
+
+  case "$choice" in
+    Add*)
+      read -rp "模型标签: " label
+      sudo howdy add "${label:-face}"
+      ;;
+    Remove*)
+      read -rp "模型 ID: " id
+      [[ -n $id ]] && sudo howdy remove "$id"
+      ;;
+    Test*)
+      sudo howdy test
+      ;;
+    Disable*)
+      sudo howdy disable true
+      ;;
+    Enable*)
+      sudo howdy disable false
+      ;;
+    Clear*)
+      gum confirm "确认清空全部人脸模型？" && sudo howdy clear
+      ;;
+    Quit*)
+      break
+      ;;
+  esac
+
+  echo
+  read -rp "回车继续…"
+done
